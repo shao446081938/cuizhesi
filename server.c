@@ -1,64 +1,48 @@
-#include<stdio.h>
-#include"unp.h"
-int
-main(int argc,char **argv)
-{
-	int maxfd,maxi,i;
-	int listenfd,connfd,sockfd,wsockfd;
-	int client[FD_SETSIZE];
-	ssize_t n;
-	fd_set rset,wset,allset;
-	char buf[MAXLINE];
-	socklen_t clilen;
-	struct sockaddr_in cliaddr,servaddr;
-	listenfd=Socket(AF_INET,SOCK_STREAM,0);
-	bzero(&servaddr,sizeof(servaddr));
-	servaddr.sin_family=AF_INET;
-	servaddr.sin_addr.s_addr=htonl(INADDR_ANY);
-	servaddr.sin_port=htons(SERV_PORT);
-
-	Bind(listenfd,(SA*)&servaddr,sizeof(servaddr));
-	Listen(listenfd,LISTENQ);
-
-	maxfd=listenfd;
-	maxi=-1;
-	for(int i=0;i<FD_SETSIZE;i++)
-		client[i]=-1;
-	FD_ZERO(&allset);
-	FD_SET(listenfd,&allset);
-
-	for(;;){
-		rset=allset;
-		wset=allset;
-		Select(maxfd+1,&rset,&wset,NULL,NULL);
-		if(FD_ISSET(listenfd,&rset)){
-			clilen=sizeof(cliaddr);
-			connfd=Accept(listenfd,(SA*)&cliaddr,&clilen);
-			for(i=0;i<FD_SETSIZE;i++)
-				if(client[i]<0){
-					client[i]=connfd;
-					break;
-				}
-			FD_SET(connfd,&allset);
-			if(connfd>maxfd)
-				maxfd=connfd;
-			if(i>maxi)
-				maxi=i;
-		}
-		for(i=0;i<=maxi;i++){
-			if((sockfd=client[i])<0)
-				continue;
-			if(FD_ISSET(sockfd,&rset)){
-				if((n=Read(sockfd,buf,MAXLINE))==0){
-					Close(sockfd);
-					FD_CLR(sockfd,&allset);
-					client[i]=-1;
-				}else
-					for(int i=0;i<=maxi;i++){
-						if((wsockfd=client[i])!=sockfd)
-							Writen(wsockfd,buf,n);
-					}
-			}
-		}
-	}
-}
+    /*server.c*/  
+      
+    #include "server_func.h"  
+    int main(int argc,char **argv)  
+    {  
+        int ret_send;  
+        int ret_recv;  
+      
+        int sfd;  
+        int cfd;  
+          
+        sfd = tcp_init("192.168.20.217", 1234);  
+        if(-1 == sfd)  
+        {  
+            return 0;    }  
+      
+        signalhandler();  
+          
+        do  
+        {  
+              
+            pthread_t id2;  
+              
+            tcp_info *info;  
+              
+            cfd = tcp_accept(sfd);  
+            if(cfd < 0)  
+            {  
+                continue;  
+            }  
+            info = (tcp_info*)malloc(sizeof(tcp_info));  
+              
+            info->sfd = sfd;  
+            info->cfd = cfd;  
+              
+            ret_recv = pthread_create(&id2, NULL, pthread_recv, (void*)info);   
+            if(ret_recv != 0)  
+            {  
+                printf("create pthread error!\n");  
+            }  
+      
+        }while(1);  
+      
+        close(cfd);  
+        close(sfd);  
+      
+        return 0;  
+    }  
